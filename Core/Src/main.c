@@ -122,9 +122,9 @@ void command_parser_fsm(void) {
      CommandType detectedCommand = COMMAND_TYPE_NONE;
 
      if (strstr((char*)buffer, COMMAND_RST) != NULL) {
-         detectedCommand = COMMAND_TYPE_RST; // Correct: Assigning an enum value
+         detectedCommand = COMMAND_TYPE_RST;
      } else if (strstr((char*)buffer, COMMAND_OK) != NULL) {
-         detectedCommand = COMMAND_TYPE_OK; // Correct: Assigning an enum value
+         detectedCommand = COMMAND_TYPE_OK;
      }
 
     switch (detectedCommand) {
