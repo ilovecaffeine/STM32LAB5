@@ -105,7 +105,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
         index_buffer = 0; // Wrap Around
 
         }
-        if (temp == '#') { // Assuming '#' is the command delimiter
+        if (temp == '#') {
             buffer_flag = 1; // Set flag only when a complete command is received
         }
 
