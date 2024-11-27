@@ -52,7 +52,7 @@ TIM_HandleTypeDef htim2;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-#define MAX_BUFFER_SIZE 30
+#define MAX_BUFFER_SIZE 31 //0-29 //one '/0'
 #define COMMAND_RST "!RST#"
 #define COMMAND_OK "!OK#"
 #define TIMEOUT_PERIOD 3000 // 3 seconds in milliseconds
@@ -64,7 +64,7 @@ uint8_t buffer_flag = 0;
 uint8_t command_flag = 0;
 char command_data[MAX_BUFFER_SIZE];
 uint32_t ADC_value = 0;
-char str[30];
+//char str[30];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,18 +99,29 @@ uint32_t ReadADC(void) {
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART1) {
-        HAL_UART_Receive_IT(&huart1, &temp, 1);
-        buffer[index_buffer++] = temp;
-        if (index_buffer == MAX_BUFFER_SIZE) {
-        index_buffer = 0; // Wrap Around
-
-        }
+        // Store the received character
+        buffer[index_buffer] = temp;
+        
+        // Check if we received a complete command (ends with '#')
         if (temp == '#') {
-            buffer_flag = 1; // Set flag only when a complete command is received
+            buffer_flag = 1;
+            // Ensure there's space for null terminator
+            if (index_buffer < MAX_BUFFER_SIZE - 1) {
+                buffer[index_buffer + 1] = '\0';
+            }
+        }
+        
+        // Increment index, checking for buffer wrap
+        index_buffer++;
+        if (index_buffer >= MAX_BUFFER_SIZE - 1) { // Buffer is full
+            index_buffer = 0;
         }
 
+        // Continue receiving
+        HAL_UART_Receive_IT(&huart1, &temp, 1);
     }
 }
+
 
 typedef enum {
     COMMAND_TYPE_NONE,
@@ -127,27 +138,37 @@ void command_parser_fsm(void) {
          detectedCommand = COMMAND_TYPE_OK;
      }
 
-    switch (detectedCommand) {
+   switch (detectedCommand) {
         case COMMAND_TYPE_RST:
-            command_flag = 1;
+            command_flag = 1; // Set flag for reset command
+            // Debug message for command received
+            char debug_msg_rst[50];
+            snprintf(debug_msg_rst, sizeof(debug_msg_rst), "Received !RST# command\n");
+            HAL_UART_Transmit(&huart1, (uint8_t*)debug_msg_rst, strlen(debug_msg_rst), HAL_MAX_DELAY);
             break;
         case COMMAND_TYPE_OK:
-            command_flag = 0;
+            command_flag = 0; // Reset flag for OK command
+            // Debug message for command received
+            char debug_msg_ok[50];
+            snprintf(debug_msg_ok, sizeof(debug_msg_ok), "Received !OK# command\n");
+            HAL_UART_Transmit(&huart1, (uint8_t*)debug_msg_ok, strlen(debug_msg_ok), HAL_MAX_DELAY);
             break;
         default:
             break;
     }
 
     // Clear the buffer and reset the index
-    memset(buffer, 0, sizeof(buffer));
-    index_buffer = 0;
+ 
+        memset(buffer, 0, sizeof(buffer));
+        index_buffer = 0;
+    
 }
 
 
 
 void uart_communication_fsm(void) {
     // Read the current ADC value
-    ADC_value = ReadADC();
+    ADC_value =ReadADC();
 
     // Check the command flag status
     if (command_flag == 1) { // Command "!RST#" received
@@ -162,6 +183,11 @@ void uart_communication_fsm(void) {
 
         // Set a timeout period for waiting
         setTimer0(TIMEOUT_PERIOD);
+
+        // Debug message
+        //char debug_msg[50];
+        //snprintf(debug_msg, sizeof(debug_msg), "Command flag set to 2, timer0 set to 100\n");
+        //HAL_UART_Transmit(&huart1, (uint8_t*)debug_msg, strlen(debug_msg), HAL_MAX_DELAY);
     } else if (command_flag == 2) { // Waiting for "!OK#"
         // Check if the timeout period has elapsed
         if (timer0_flag == 1) {
@@ -169,12 +195,18 @@ void uart_communication_fsm(void) {
             HAL_UART_Transmit(&huart1, (uint8_t*)command_data, strlen(command_data), HAL_MAX_DELAY);
 
             // Reset the timeout period
-            setTimer0(TIMEOUT_PERIOD);
+            setTimer0(TIMEOUT_PERIOD); //TIMEOUT_PERIOD
+
+            // Reset the timer0_flag
+            //timer0_flag = 0;
+
+            // Debug message
+            //char debug_msg[50];
+            //snprintf(debug_msg, sizeof(debug_msg), "Retransmitting command data, timer0 reset to 100\n");
+           // HAL_UART_Transmit(&huart1, (uint8_t*)debug_msg, strlen(debug_msg), HAL_MAX_DELAY);
         }
     }
 }
-
-
 
 /* USER CODE END 0 */
 
@@ -435,16 +467,8 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-//int counter=0;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	// getKeyInput();
-  //   timer_run();
     timer_run();
-//   counter++;
-//    if (counter>=100){
-//    	HAL_GPIO_TogglePin(LED_1_GPIO_Port, LED_1_Pin);
-//    	counter=0;
-//    }
 }
 /* USER CODE END 4 */
 
